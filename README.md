@@ -6,10 +6,29 @@ Lo scenario per cui è stato preparato: **7 dischi da circa 7 TB**, **RAID6**, *
 
 La guida con gli screenshot della sessione SSH e i pulsanti **Copia** (testo pulito, senza gli a-capo di Windows) è `docs/guida-raid.html`. Aprila sul portatile prima di staccare la rete. Sul server, da terminale, basta questo README.
 
+## Installazione rapida dal file .tar.gz
+
+Nella pagina principale del repository c'è **`raid6-kit-ubuntu-24.04-amd64.tar.gz`** (40 MB): contiene la cartella `raid6-kit` completa, script e 81 pacchetti `.deb`. Scaricalo (pulsante *Download raw file*) e copialo sulla chiavetta.
+
+SHA-256: `c7d739e2cc988b82bd1fd8d8fee7b658fb842e430aac338d843f817fb9d9f277`
+
+Sul server, senza rete (adatta il percorso della chiavetta):
+
+```bash
+sha256sum /media/$USER/CHIAVETTA/raid6-kit-ubuntu-24.04-amd64.tar.gz
+sudo tar -xzf /media/$USER/CHIAVETTA/raid6-kit-ubuntu-24.04-amd64.tar.gz -C /opt
+cd /opt/raid6-kit
+sudo RAID6_PLAN_ONLY=1 bash scripts/setup-raid6.sh
+sudo bash scripts/setup-raid6.sh
+```
+
+Lo scompattamento crea `/opt/raid6-kit`. Il manuale con gli screenshot non è nel `.tar.gz`: è `docs/guida-raid-tutto-in-uno.html`, da aprire sul portatile.
+
 ## Cosa c'è nel repository
 
 | Percorso | A cosa serve |
 | --- | --- |
+| `raid6-kit-ubuntu-24.04-amd64.tar.gz` | La cartella `raid6-kit` in un solo file, da scompattare in `/opt` |
 | `raid6-kit/packages/` | 81 pacchetti `.deb` di Ubuntu 24.04 noble amd64 e l'elenco `MANIFEST.txt` |
 | `raid6-kit/scripts/setup-raid6.sh` | Script interattivo. Il nome è rimasto quello storico: dentro chiede il livello |
 | `raid6-kit/LEGGIMI.txt` | Promemoria corto da leggere sulla chiavetta |
