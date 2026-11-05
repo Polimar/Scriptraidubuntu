@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manuale RAID offline — Ubuntu 24.04</title>
+  <style>
+    :root {
+      --ink: #1c1915;
+      --muted: #5c564c;
+      --paper: #f6f3ec;
+      --card: #fffdf8;
+      --line: #e2d9cc;
+      --brand: #8f2d24;
+      --brand-dark: #6e211b;
+      --ok: #1f6b45;
+      --warn-bg: #fff4e5;
+      --warn-ink: #6a4100;
+      --code-bg: #221f1b;
+      --code-fg: #f6f3ec;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 18px/1.55 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    }
+    header {
+      background: var(--ink);
+      color: var(--paper);
+      padding: 2.5rem 1.25rem 2rem;
+    }
+    header .wrap, main { max-width: 68rem; margin: 0 auto; }
+    main { padding: 1.5rem 1.25rem 4rem; }
+    h1 { font-size: 2.15rem; line-height: 1.15; margin: 0 0 0.6rem; font-weight: 600; }
+    h2 { font-size: 1.5rem; margin: 2.4rem 0 0.6rem; line-height: 1.25; }
+    h3 { font-size: 1.15rem; margin: 1.5rem 0 0.4rem; }
+    p, li { color: var(--ink); }
+    .lead { font-size: 1.15rem; margin: 0; color: #efe8dc; }
+    a { color: var(--brand); }
+    header a { color: #f0c7c2; }
+    nav { margin-top: 1.2rem; display: flex; flex-wrap: wrap; gap: 0.7rem 1rem; font: 0.85rem/1.3 "Segoe UI", system-ui, sans-serif; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 0.95rem; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 0.45rem 0.5rem; vertical-align: top; }
+    th { font: 600 0.78rem/1.3 "Segoe UI", system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    code, pre { font-family: Consolas, "Cascadia Mono", "Liberation Mono", ui-monospace, monospace; }
+    code { font-size: 0.86em; background: #efe8dc; padding: 0.05em 0.3em; border-radius: 3px; }
+    .cmd {
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-start;
+      background: var(--code-bg);
+      border-radius: 8px;
+      margin: 0.7rem 0 1rem;
+      padding: 0.35rem 0.35rem 0.35rem 0.9rem;
+    }
+    .cmd pre {
+      margin: 0;
+      padding: 0.55rem 0;
+      color: var(--code-fg);
+      white-space: pre;
+      overflow-x: auto;
+      flex: 1;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      tab-size: 2;
+    }
+    button.copy {
+      font: 600 0.82rem/1 "Segoe UI", system-ui, sans-serif;
+      background: var(--brand);
+      color: white;
+      border: 0;
+      border-radius: 6px;
+      padding: 0.55rem 0.75rem;
+      cursor: pointer;
+      flex: none;
+    }
+    button.copy:hover { background: var(--brand-dark); }
+    button.copy.done { background: var(--ok); }
+    .note, .warn {
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      margin: 1rem 0;
+    }
+    .note { background: var(--card); border: 1px solid var(--line); }
+    .warn { background: var(--warn-bg); color: var(--warn-ink); }
+    .warn strong, .note strong { font-family: "Segoe UI", system-ui, sans-serif; }
+    ol.steps > li { margin: 0.4rem 0; }
+    figure {
+      margin: 1rem 0 1.4rem;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.6rem;
+    }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      background: #1b1b1b;
+    }
+    figcaption {
+      margin: 0.55rem 0.2rem 0.15rem;
+      color: var(--muted);
+      font: 0.92rem/1.45 "Segoe UI", system-ui, sans-serif;
+    }
+    footer { color: var(--muted); font-size: 0.9rem; margin-top: 2rem; }
+    @media print {
+      header { background: white; color: black; }
+      .lead, header a { color: black; }
+      button.copy { display: none; }
+      .cmd { background: white; border: 1px solid #ccc; }
+      .cmd pre { color: black; }
+      figure { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Manuale: RAID software offline su Ubuntu 24.04</h1>
+      <p class="lead">Cosa fa <code>scripts/setup-raid6.sh</code>, come lo fa, e la sessione SSH in cui un RAID6 da 5 dischi più 2 spare è stato creato davvero.</p>
+      <nav>
+        <a href="#comandi">Comandi</a>
+        <a href="#sessione">Sessione</a>
+        <a href="#come">Come lo fa</a>
+        <a href="#livelli">Livelli</a>
+        <a href="#dopo">Dopo</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <p>Il caso previsto è <strong>7 dischi da circa 7 TB</strong>, <strong>RAID6</strong>, <strong>5 attivi + 2 hot spare</strong>. Capacità utile circa 21 TB. Con almeno 7 dischi visibili, Invio alle prime domande produce proprio quello: mount <code>/mnt/raid6</code>, nome <code>raid6data</code>, filesystem <code>xfs</code>.</p>
+    <p>Lo stesso script crea anche RAID0, RAID1, RAID4, RAID5 e RAID10. <code>linear</code> solo se il kernel ha il modulo: sul kernel 6.8 di Ubuntu 24.04 non c'è, è stato tolto e torna dal 6.12. <code>multipath</code> e <code>faulty</code> non sono nel menu: il primo non è un RAID di dischi diversi, il secondo serve solo a simulare guasti.</p>
+
+    <div class="warn">
+      <strong>Il YES cancella i dischi scelti.</strong>
+      Va scritto in maiuscolo. Qualsiasi altra risposta annulla. Il disco di sistema, i dischi montati e lo swap non compaiono nella lista. Una chiavetta smontata può comparire: è sotto 1 TB e lo script lo dice prima del YES.
+    </div>
+
+    <h2 id="comandi">Comandi da copiare</h2>
+    <p>Ogni pulsante copia il testo con a capo Unix, senza spazi non separabili e senza virgolette curve. Si può incollare da Windows su Linux.</p>
+    <h3>Sulla chiavetta</h3>
+    <div class="cmd">
+      <pre>cp -a raid6-kit docs /media/$USER/CHIAVETTA/</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <p>Serve tutta la cartella <code>docs</code>, non solo questo file: gli screenshot stanno in <code>docs/img</code>.</p>
+    <h3>Sul server, senza rete</h3>
+    <div class="cmd">
+      <pre>sudo mkdir -p /opt
+sudo cp -a /media/$USER/CHIAVETTA/raid6-kit /opt/raid6-kit
+cd /opt/raid6-kit</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <div class="cmd">
+      <pre>dpkg --print-architecture
+. /etc/os-release &amp;&amp; echo "$VERSION_CODENAME $VERSION_ID"</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <p>Deve rispondere <code>amd64</code> e <code>noble 24.04</code>. Se l'architettura non è amd64 lo script esce subito. Se l'Ubuntu non è 24.04 chiede un YES in più prima di continuare.</p>
+    <div class="cmd">
+      <pre>lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,MODEL</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <h3>Prima il piano, poi la creazione</h3>
+    <div class="cmd">
+      <pre>sudo RAID6_PLAN_ONLY=1 bash scripts/setup-raid6.sh</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <p>Elenca i <code>.deb</code> che installerebbe e esce. Non partiziona nulla. <code>sudo</code> sul server chiede la password: nella prova sotto era già autorizzato, quindi il prompt della password non compare.</p>
+    <div class="cmd">
+      <pre>sudo bash scripts/setup-raid6.sh</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+
+    <h2 id="sessione">La sessione, passo per passo</h2>
+    <div class="note">
+      <strong>Queste schermate sono una prova, non il tuo server.</strong>
+      Ubuntu 24.04.5, kernel 6.8.0-147-generic, collegato in SSH. Il kit è il disco <code>vdb</code> etichettato <code>RAIDKIT</code> montato su <code>/mnt/kit</code>. I sette dischi dati sono <code>vdc</code>–<code>vdi</code> da 1 GB, per questo compare l'avviso «più piccolo di 1 TB». Sul server il kit è la chiavetta e i dischi sono quelli da circa 7 TB: quell'avviso non deve comparire. Se compare, hai incluso un disco sbagliato.
+    </div>
+
+    <h3>1. I dischi e il piano</h3>
+    <p>Lo script non è ancora partito. <code>lsblk</code> mostra il disco di root (<code>vda</code>, montato su <code>/</code>), il kit (<code>vdb</code>, montato) e sette dischi senza filesystem. Poi <code>RAID6_PLAN_ONLY=1</code> legge i <code>.deb</code> in <code>packages/</code>, guarda cosa è già installato e stampa solo il mancante. Qui manca <code>mdadm 4.3-1ubuntu2.1</code>. Nessun disco viene aperto in scrittura: il piano esce prima di <code>need_root</code> sulle partizioni.</p>
+    <figure>
+      <img src="img/01-dischi-e-piano.png" alt="SSH: lsblk con sette dischi vuoti e il piano che elenca solo mdadm 4.3">
+      <figcaption>Sette dischi candidati da 1 GB e il piano: un solo pacchetto, preso dal kit, nessun disco toccato.</figcaption>
+    </figure>
+
+    <h3>2. Installa il pacchetto, poi chiede il livello</h3>
+    <p>Senza <code>RAID6_PLAN_ONLY</code> lo script installa quel <code>.deb</code> con <code>dpkg</code>. Non aggiorna il resto del sistema. Non tocca <code>libc6</code>, <code>systemd</code> e <code>udev</code> se la versione già presente basta; se non basta, esce prima di scrivere sui dischi. Le domande di debconf di mdadm restano sui default (controllo mensile acceso, mail a root). I file di configurazione già presenti si tengono (<code>--force-confdef --force-confold</code>).</p>
+    <p>Nella schermata si vede il pacchetto locale spacchettato (<code>mdadm_4.3-1ubuntu2.1_amd64.deb</code>) e <code>update-initramfs</code> che rigenera l'initrd. La riga su <code>os-prober</code> arriva da grub durante quel trigger: non è un errore dello script. La riga che conta è <code>OK mdadm pronto</code>.</p>
+    <p>Poi elenca solo i dischi interi il cui nome è <code>sd*</code>, <code>vd*</code>, <code>nvme*n*</code>, <code>mmcblk*</code> e simili. Salta il disco di root, qualunque disco con qualcosa di montato, e lo swap. Il kit montato non c'è. I sette dischi diventano i numeri 1–7.</p>
+    <p>Il menu è la lista dei livelli che mdadm sa creare su dischi dati. Invio vale 6. In questa prova è stato premuto Invio: la riga successiva dice «Livello scelto: RAID6» e chiede quanti dischi attivi. Il default tra parentesi è 5, perché i dischi visibili sono almeno 7 e il livello è 6. Il minimo di RAID6 è 4: un numero più basso viene rifiutato e la domanda si ripete.</p>
+    <figure>
+      <img src="img/02-pacchetto-e-livelli.png" alt="SSH: installazione di mdadm dal deb locale, elenco dischi e menu dei livelli con la domanda sui dischi attivi">
+      <figcaption>mdadm installato dal kit. Menu dei livelli, Invio per RAID6, domanda sui dischi attivi con default 5.</figcaption>
+    </figure>
+    <p><code>linear</code> è stampato come non disponibile: <code>modprobe linear</code> è fallito. Il kernel 6.8 non ha <code>md-linear</code>. Scrivere <code>linear</code> fa ripetere il menu e non tocca i dischi. Su un kernel 6.12 o successivo la voce torna selezionabile.</p>
+
+    <h3>3. Quanti dischi, e quali</h3>
+    <p>Anche la seconda domanda ha preso Invio, quindi 2 spare. È il default solo per RAID6 con almeno 7 dischi. Su RAID1, 4, 5 e 10 il default degli spare è 0. RAID0 e linear non fanno questa domanda: uno spare non ricostruisce un disco senza parità o senza mirror.</p>
+    <p>La riga degli spare è un numero solo. <code>1 2 3</code> qui verrebbe rifiutata («Un solo numero, senza spazi»): i numeri dei dischi arrivano dopo. Lo script ristampa l'elenco e chiede esattamente 5 indici, separati da spazio.</p>
+    <figure>
+      <img src="img/03-scelta-dischi.png" alt="SSH: default di 5 attivi e 2 spare, poi la richiesta dei numeri dei dischi attivi">
+      <figcaption>Invio ha accettato 5 attivi e 2 spare. Adesso servono cinque numeri, per esempio 1 2 3 4 5.</figcaption>
+    </figure>
+
+    <h3>4. Spare, mount e nome</h3>
+    <p>Gli attivi sono <code>1 2 3 4 5</code> (<code>vdc</code>–<code>vdg</code>). Gli spare sono <code>6 7</code> (<code>vdh</code>, <code>vdi</code>). Un numero doppio, un indice inesistente o uno spare uguale a un attivo fa ripetere la domanda. Poi chiede il mount, default <code>/mnt/raid6</code>. Rifiuta <code>/</code>, un percorso con doppio slash, e le directory di sistema (<code>/boot</code>, <code>/etc</code>, <code>/usr</code>, <code>/home</code> e le altre). Il nome, default <code>raid6data</code>, accetta lettere, numeri, punto, trattino e underscore, al massimo 32 caratteri.</p>
+    <figure>
+      <img src="img/04-mount.png" alt="SSH: dischi attivi 1 2 3 4 5, spare 6 7, cursore sul punto di mount">
+      <figcaption>Dischi scelti. Il cursore è sul mount: Invio tiene /mnt/raid6.</figcaption>
+    </figure>
+
+    <h3>5. Il riepilogo, prima del YES</h3>
+    <p>Prima di scrivere qualsiasi cosa sui dischi, lo script ristampa il comando che sta per eseguire, in forma leggibile. Device <code>/dev/md0</code> (si cambia solo con la variabile <code>MD_DEVICE</code>). Chunk 512 KiB (si cambia solo con <code>CHUNK_KIB</code>, tra 4 e 65536). Bitmap interna. Metadata 1.2. I sette dischi con la dimensione. Il mount.</p>
+    <p>Poi gli avvisi. Sotto 1 TB avvisa, non blocca: nella prova i dischi sono da 1 GB, quindi l'avviso c'è sette volte. Con dischi da 7 TB non c'è. Se sul server lo vedi, fermati e controlla di non avere la chiavetta nella lista.</p>
+    <p>L'ultima riga è l'unica conferma. Finché non si scrive <code>YES</code> in maiuscolo, i dischi restano come sono.</p>
+    <figure>
+      <img src="img/05-riepilogo.png" alt="SSH: riepilogo RAID6, cinque attivi, due spare, avvisi sui dischi da 1 GB e la domanda YES">
+      <figcaption>Riepilogo completo e cursore sulla domanda YES. Ancora non è stato partizionato nulla.</figcaption>
+    </figure>
+
+    <h3>6. Dopo il YES: partizioni, array, filesystem</h3>
+    <p>A <code>YES</code> lo script, per ogni disco scelto, ferma l'array che lo tiene (se c'è), cancella firme e superblocco, e solo dopo scrive la GPT. Azzerare il disco a partizione già creata distruggerebbe la tabella e il device della partizione sparirebbe: per questo l'azzeramento è una volta sola, prima di <code>sgdisk</code>. La partizione è una sola, parte a 1 MiB, arriva in fondo, tipo <code>FD00</code> (Linux RAID). Lo script aspetta che compaia <code>/dev/vdc1</code> (oppure <code>p1</code> su nvme e loop) e poi cancella le firme sulla partizione, così mdadm non si ferma su un superblocco vecchio.</p>
+    <p>Il create è questo, anche se nella schermata si vede il risultato e non la riga del comando:</p>
+    <div class="cmd">
+      <pre>mdadm --create /dev/md0 --name=raid6data --level=6 --raid-devices=5 --metadata=1.2 --run --chunk=512 --bitmap=internal --spare-devices=2 /dev/vdc1 /dev/vdd1 /dev/vde1 /dev/vdf1 /dev/vdg1 /dev/vdh1 /dev/vdi1</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <p><code>--run</code> c'è perché il YES l'hai già dato: mdadm 4.3 non ha <code>--yes</code>, e una seconda domanda si mangerebbe la risposta del filesystem. Non usa <code>--force</code>.</p>
+    <p>Subito dopo stampa <code>/proc/mdstat</code> e <code>mdadm --detail</code>, poi chiede il filesystem. Invio vale <code>xfs</code>. L'allineamento per RAID6 è <code>su=512k</code> (il chunk) e <code>sw=3</code>: cinque dischi meno due di parità. In blocchi da 4 KiB, <code>sunit=128</code> e <code>swidth=384</code>. La riga «log stripe unit is too large» è xfs che riduce solo lo stripe del journal interno; i dati restano allineati. Se l'mkfs allineato fallisse, lo script riprova senza quelle opzioni.</p>
+    <p>Monta su <code>/mnt/raid6</code>. Riscrive <code>/etc/mdadm/mdadm.conf</code> tenendo gli altri array e sostituendo la riga di questo UUID. Aggiunge a <code>/etc/fstab</code> la riga con l'UUID, <code>defaults,nofail,x-systemd.device-timeout=120</code> e ordine <code>0 2</code>. Poi <code>update-initramfs -u</code>, così al boot l'array si riassembla. <code>FATTO</code> arriva solo dopo.</p>
+    <figure>
+      <img src="img/06-fatto.png" alt="SSH: dettaglio del RAID6 in resync, mkfs.xfs allineato, fstab aggiornato e la riga FATTO">
+      <figcaption>Array creato, XFS allineato allo stripe, fstab e initramfs aggiornati. La sync iniziale è ancora all'1%: il volume è già montato.</figcaption>
+    </figure>
+
+    <h3>7. Il dettaglio, a sync quasi finita</h3>
+    <p>Raid level <code>raid6</code>, 5 dischi nell'array, 7 in totale, 2 spare, stato <code>clean</code>, bitmap interna, chunk 512K, layout left-symmetric. <code>vdc1</code>–<code>vdg1</code> sono active sync. <code>vdh1</code> e <code>vdi1</code> sono spare, non hanno uno slot dati.</p>
+    <figure>
+      <img src="img/07-dettaglio.png" alt="SSH: mdadm --detail di un RAID6 clean con 5 dischi attivi e 2 spare">
+      <figcaption>Il dettaglio dopo la sync sui dischi da 1 GB. Sui 7 TB la stessa schermata resta in resync per ore o giorni.</figcaption>
+    </figure>
+
+    <h3>8. Montato, scrivibile, e si riavvia da solo</h3>
+    <p><code>/proc/mdstat</code> mostra <code>[5/5] [UUUUU]</code> e i due spare fra parentesi <code>(S)</code>. <code>findmnt</code> e <code>df</code> vedono un XFS da 3,8 GB: è la capacità di un RAID6 su cinque dischi da 1 GB, cioè tre dischi di dati. Il file <code>prova-scritta-dal-manuale</code> è stato scritto sul mount. La riga di fstab ha <code>nofail</code> e un timeout di 120 secondi, così un disco lento al boot non blocca il server. <code>mdadm.conf</code> registra l'UUID e <code>spares=2</code>.</p>
+    <figure>
+      <img src="img/08-verifica.png" alt="SSH: mdstat con cinque dischi su cinque, filesystem xfs montato, file di prova, fstab e mdadm.conf">
+      <figcaption>Array attivo, filesystem montato, file letto dal disco, fstab e mdadm.conf aggiornati.</figcaption>
+    </figure>
+    <p>In una prova precedente, con lo stesso script, la macchina è stata riavviata: <code>/mnt/raid6</code> è tornato montato da solo e l'hash di un file da 8 MB scritto prima del reboot coincideva. Non serve un comando manuale dopo il boot, se fstab e mdadm.conf sono quelli che ha scritto lo script.</p>
+
+    <h2 id="come">Come lo fa, in ordine</h2>
+    <ol class="steps">
+      <li>Controlla <code>amd64</code>. Se l'Ubuntu non è noble o 24.04, chiede conferma. In <code>RAID6_PLAN_ONLY</code> quella conferma non c'è: il piano non deve fermarsi su una domanda.</li>
+      <li>Costruisce l'insieme dei pacchetti a partire da mdadm, parted, gdisk, xfsprogs, e2fsprogs, finalrd e kmod. Segue Depends e Pre-Depends. Se un'alternativa è già installata e soddisfa la versione, non installa l'altra. Installa solo ciò che manca. Aggiorna un pacchetto non protetto solo se la versione installata non soddisfa una dipendenza e il <code>.deb</code> del kit è più nuovo e la soddisfa. I protetti sono libc6, libudev1, udev, systemd, systemd-dev, libsystemd0, libsystemd-shared, dpkg, tar, gcc-14-base, libgcc-s1, libstdc++6. Se uno di questi è troppo vecchio, esce prima dei dischi.</li>
+      <li>Chiede livello, eventuali spare, indici, mount, nome. Il profilo del livello decide chunk, bitmap e spare. RAID6 con almeno 7 dischi propone 5 e 2. Il chunk non si chiede.</li>
+      <li>Al YES, per ogni disco: ferma chi lo tiene, <code>wipefs</code>, <code>mdadm --zero-superblock</code> sul disco intero, GPT, partizione <code>FD00</code> da 1 MiB, attesa del device, <code>wipefs</code> sulla partizione. Se la partizione non compare, esce. Non continua con un disco occupato.</li>
+      <li><code>mdadm --create</code> con metadata 1.2 e <code>--run</code>. Chunk 512 KiB su 0, 4, 5, 6 e 10. Niente chunk su RAID1 e linear. Bitmap interna su 1, 4, 5, 6 e 10. Niente bitmap su RAID0 e linear. Niente spare su RAID0 e linear. RAID10 aggiunge <code>--layout</code>.</li>
+      <li>XFS o ext4. Lo stripe di XFS è <code>su</code> uguale al chunk e <code>sw</code> uguale al numero di dischi dati: tutti i dischi su RAID0, n−1 su RAID4 e RAID5, n−2 su RAID6, e su RAID10 i dischi divisi per il numero di copie se la divisione è intera. ext4 usa <code>stride</code> e <code>stripe_width</code> con la stessa aritmetica. RAID1 e linear non hanno stripe: mkfs normale.</li>
+      <li>Mount, <code>mdadm.conf</code>, fstab con UUID, <code>update-initramfs -u</code> se il comando c'è. Se l'initramfs fallisce, avvisa: l'array è già montato, al reboot va controllato <code>/proc/mdstat</code>.</li>
+    </ol>
+
+    <h2 id="livelli">Livelli</h2>
+    <table>
+      <thead>
+        <tr><th>Livello</th><th>Minimo</th><th>Spare</th><th>Se un disco muore</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>linear</td><td>2</td><td>no</td><td>Si perdono i dati di quel disco, e spesso anche il resto. Sul kernel 6.8 non si può creare.</td></tr>
+        <tr><td>RAID0</td><td>2</td><td>no</td><td>Tutto l'array è perso.</td></tr>
+        <tr><td>RAID1</td><td>2</td><td>sì</td><td>Regge fino a restare una copia.</td></tr>
+        <tr><td>RAID4</td><td>3</td><td>sì</td><td>Regge un disco. La parità sta su un disco solo, che diventa il collo di bottiglia. Lo script lo dice prima del YES.</td></tr>
+        <tr><td>RAID5</td><td>3</td><td>sì</td><td>Regge un disco. La parità è distribuita.</td></tr>
+        <tr><td>RAID6</td><td>4</td><td>sì</td><td>Regge due dischi. È il default del kit.</td></tr>
+        <tr><td>RAID10</td><td>2</td><td>sì</td><td>Dipende dal layout. Dopo il livello chiede <code>n2</code> (default), <code>f2</code> o <code>o2</code>. <code>n3</code> e simili solo se i dischi bastano.</td></tr>
+      </tbody>
+    </table>
+    <p>RAID0 e linear non sopravvivono al guasto di un disco. Lo script lo scrive nel riepilogo, prima del YES.</p>
+    <p>La sync iniziale di un RAID5 o RAID6 da 7 TB può durare giorni. Il filesystem è usabile subito, più lento finché <code>/proc/mdstat</code> non arriva in fondo. Sui dischi da 1 GB della prova la sync è finita in pochi secondi: non usare quel tempo come previsione.</p>
+
+    <h2 id="dopo">Dopo, e se lo rilanci</h2>
+    <div class="cmd">
+      <pre>cat /proc/mdstat
+sudo mdadm --detail /dev/md0
+findmnt /mnt/raid6
+df -hT /mnt/raid6</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <p>I dischi di un array ancora montato non compaiono nella lista. Per rifarlo sugli stessi dischi:</p>
+    <div class="cmd">
+      <pre>sudo umount /mnt/raid6
+sudo mdadm --stop /dev/md0
+sudo bash scripts/setup-raid6.sh</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+    <p>Se <code>/dev/md0</code> esiste ancora, lo script chiede un secondo <code>YES</code> prima di fermarlo. Se un disco è agganciato a un altro array, per esempio <code>md127</code> riassemblato da solo al boot, lo ferma dopo il YES di distruzione, solo per i dischi che hai scelto.</p>
+    <p>Se al boot il mount non c'è:</p>
+    <div class="cmd">
+      <pre>sudo mdadm --assemble --scan
+sudo mount -a</pre>
+      <button type="button" class="copy">Copia</button>
+    </div>
+
+    <h2>Cosa non fa</h2>
+    <ul>
+      <li>Non scarica pacchetti e non aggiorna il sistema.</li>
+      <li>Non crea multipath né faulty.</li>
+      <li>Non chiede una seconda conferma a mdadm: il YES del riepilogo è l'unica.</li>
+      <li>Non offre linear sul kernel 6.8. Non lo sostituisce di nascosto con un altro livello.</li>
+      <li>Non continua se <code>wipefs</code> non pulisce il disco. Esce, e i dischi già passati in quel giro possono essere già stati azzerati: non rilanciarlo alla cieca su altri dischi. Leggi le ultime righe, poi <code>lsblk</code> e <code>cat /proc/mdstat</code>.</li>
+    </ul>
+
+    <footer>
+      File dello script: <code>raid6-kit/scripts/setup-raid6.sh</code>.
+      Le schermate sono la sessione SSH del 4 novembre 2026, ore 23:54 (Italia).
+      I dischi di quella prova sono da 1 GB. I comandi da usare sul server sono quelli con il pulsante Copia.
+    </footer>
+  </main>
+  <script>
+    (function () {
+      function clean(value) {
+        return String(value)
+          .replace(/\u00a0/g, " ")
+          .replace(/[\u200B-\u200D\uFEFF]/g, "")
+          .replace(/\r\n/g, "\n")
+          .replace(/\r/g, "\n")
+          .replace(/[ \t]+\n/g, "\n")
+          .replace(/^\n+|\n+$/g, "");
+      }
+
+      function fallbackCopy(value) {
+        var area = document.createElement("textarea");
+        area.value = value;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.top = "0";
+        area.style.left = "0";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.focus();
+        area.select();
+        area.setSelectionRange(0, area.value.length);
+        var ok = false;
+        try {
+          ok = document.execCommand("copy");
+        } catch (err) {
+          ok = false;
+        }
+        document.body.removeChild(area);
+        return ok;
+      }
+
+      function copyValue(value) {
+        var cleanValue = clean(value);
+        if (navigator.clipboard && window.isSecureContext) {
+          return navigator.clipboard.writeText(cleanValue).then(function () {
+            return true;
+          }).catch(function () {
+            return fallbackCopy(cleanValue);
+          });
+        }
+        return Promise.resolve(fallbackCopy(cleanValue));
+      }
+
+      document.querySelectorAll(".cmd").forEach(function (block) {
+        var pre = block.querySelector("pre");
+        var button = block.querySelector("button");
+        if (!pre || !button) {
+          return;
+        }
+        button.addEventListener("click", function () {
+          copyValue(pre.textContent).then(function (ok) {
+            var previous = button.textContent;
+            button.textContent = ok ? "Copiato" : "Seleziona a mano";
+            button.classList.toggle("done", !!ok);
+            window.setTimeout(function () {
+              button.textContent = previous;
+              button.classList.remove("done");
+            }, 1600);
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+Kit RAID offline — Ubuntu 24.04 LTS (noble) amd64
+==================================================
+
+Lo script e interattivo: scegli il livello RAID, i dischi, il mount e il
+filesystem. Il default, premendo Invio, e lo scenario del kit:
+7 dischi, RAID6, 5 attivi + 2 hot spare, mount /mnt/raid6, xfs.
+
+Livelli accettati: 0, 1, 4, 5, 6, 10.
+linear solo se il kernel ha il modulo (manca sul kernel 6.8 di Ubuntu 24.04, torna dal 6.12).
+RAID10 chiede anche il layout (default n2).
+RAID0 e linear non hanno hot spare.
+
+Uso
+---
+  cd /opt/raid6-kit
+  sudo RAID6_PLAN_ONLY=1 bash scripts/setup-raid6.sh
+  sudo bash scripts/setup-raid6.sh
+
+YES in maiuscolo cancella i dischi che hai scelto.
+I dischi di sistema, quelli montati e lo swap non compaiono nella lista.
+Controlla comunque: lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,MODEL
+
+La guida con gli screenshot della sessione e i pulsanti Copia e
+../docs/guida-raid.html (cartella docs intera, immagini comprese).
+Il testo completo e nel README.md del repository.
+
+Lo script non usa la rete e non aggiorna libc, systemd o udev se la
+versione gia installata basta.
